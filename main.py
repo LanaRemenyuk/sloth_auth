@@ -5,9 +5,8 @@ from typing import Any
 from app.api.routes.auth import router
 from app.core.config import settings
 from app.core.logger import get_logging_config
-from app.db import lifespan
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 
 log_config: dict[str, Any] = get_logging_config(
     log_level='INFO',

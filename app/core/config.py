@@ -2,7 +2,6 @@ from pydantic import PostgresDsn, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Any, Optional
 
-
 class Settings(BaseSettings):
     """Класс конфигурации приложения"""
     environment: str = 'development'
@@ -12,37 +11,45 @@ class Settings(BaseSettings):
     log_level: str = 'info'
     docs_name: str = 'auth'
     
-    #настройка базы данных
+    # Настройки базы данных
     postgres_host: str
     postgres_username: str
     postgres_password: str
     postgres_port: int
-    postgre_db_name: str
-    postgres_url: Optional[PostgresDsn] = None
+    postgres_db_name: str
+    postgres_url: str
+
+    # Настройка почтового клиента
+    smtp_host: str
+    smtp_port: int
+    smtp_user: str
+    smtp_password: str
+    smtp_from: str 
+
+    # Настройка Redis
+    redis_host: str
+    redis_port: int
+    redis_db: int
+
+    # JWT настройки
+    jwt_secret_key: str
+    access_token_expire_minutes: int = 30
+    refresh_token_expire_days: int = 7
 
     model_config = SettingsConfigDict(
-        env_file = '.env'
+        env_file='.env',
         env_file_encoding='utf-8'
     )
 
     @property
-    def service_name(
-        self,
-    ) -> str:
+    def service_name(self) -> str:
         return self.docs_name
-    
+
     @field_validator('postgres_url', mode='before')
-    def assemble_postgres_connection(cls, v: Optional[str], values: dict[str[Any]]) -> str:
+    def assemble_postgres_connection(cls, v: Optional[str], values: dict[str, Any]) -> str:
         if v is not None:
             return v
-        
-        return PostgresDsn.build(
-            scheme='postgresql',
-            user=values['postgres_username'],
-            password=values['postgres_password'],
-            host=values['postgres_host'],
-            port=str(values['postgres_port']),
-            path=f'/{values['postgres_db_name']}',
-        )
-    
+        # Construct the PostgreSQL connection string
+        return f"postgresql://{values['postgres_username']}:{values['postgres_password']}@{values['postgres_host']}:{values['postgres_port']}/{values['postgres_db_name']}"
+
 settings = Settings()

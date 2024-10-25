@@ -1,0 +1,28 @@
+version: '3.9'
+
+services:
+  auth:
+    build: 
+      context: .
+      dockerfile: Dockerfile 
+    container_name: auth
+    ports:
+      - "8080:8080"
+    depends_on:
+      - redis
+    env_file:
+      - .env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+
+  redis:
+    image: 'redis:latest'
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data:

@@ -5,13 +5,13 @@ from app.core.config import settings
 
 DATABASE_URL = settings.postgres_url
 
-connection: Optional[asyncpg.Connection]
+connection: Optional[asyncpg.Connection] = None
 
 async def lifespan(app) -> AsyncGenerator:
     """Функция инициализации контекстного менеджера жизненного цикла для соединения с бд"""
     global connection
     if connection is None:
-        connection = await asyncpg.connect(str(DATABASE_URL))
+        connection = await asyncpg.connect(DATABASE_URL)
         print('Соединение с базой данных установлено')
     yield
     if connection is not None:
