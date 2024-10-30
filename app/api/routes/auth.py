@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Request, HTTPException, status, Body
 
 from app.core.config import settings
 from app.db import get_db
-from app.db.functions import execute_save_refresh_token
+from app.db.functions import execute_save_refresh_token, get_refresh_token_for_user
 from app.middlewares.auth import create_access_token, get_current_user, verify_token
 from app.schemas.auth import LoginRequest
 from app.utils.email_utils import send_verification_email
@@ -62,13 +62,21 @@ async def login(request: LoginRequest, db: asyncpg.Connection = Depends(get_db))
 
 
 @router.post("/verify_token", status_code=status.HTTP_200_OK)
-async def verify_token_endpoint(token: str):
+async def verify_token_endpoint(token_data: dict = Body(...)):
     try:
-        token_data = verify_token(token)
-        return {"is_valid": True, "user_id": token_data["sub"]}
+        # Извлекаем токен из переданного JSON
+        token = token_data.get("token")
+        if not token:
+            raise HTTPException(status_code=400, detail="Token is required")
+        
+        payload = verify_token(token)
+        
+        return {"is_valid": True, "user_id": payload["sub"]}
+    except HTTPException as e:
+        raise e
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Invalid token: {e}")                           
-
+        raise HTTPException(status_code=500, detail=f"An error occurred: {e}")
+                         
 
 @router.post("/refresh_token", status_code=status.HTTP_200_OK)
 async def refresh_access_token(refresh_token: str, db: asyncpg.Connection = Depends(get_db)):
@@ -80,3 +88,54 @@ async def refresh_access_token(refresh_token: str, db: asyncpg.Connection = Depe
         return {"access_token": new_access_token, "token_type": "bearer"}
     except HTTPException:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+
+@router.post("/validate_and_refresh_token", status_code=status.HTTP_200_OK)
+async def validate_and_refresh_token(
+    request: Request,
+    db: asyncpg.Connection = Depends(get_db)
+):
+    authorization_header = request.headers.get("Authorization")
+    if not authorization_header or not authorization_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid access token")
+
+    access_token = authorization_header.split(" ")[1]
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    
+    refresh_token: Optional[str] = body.get("refresh_token")
+
+    if not refresh_token:
+        payload = verify_token(access_token)
+        user_id = payload.get("sub")
+
+        refresh_token = await get_refresh_token_for_user(db, user_id)
+        if not refresh_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail='Refresh token not found in database'
+            )
+
+    try:
+        payload = verify_token(access_token)
+        return {
+            'message': 'Access token is valid',
+            'token_type': 'bearer'
+        }
+    except HTTPException:
+        if refresh_token:
+            token_data = verify_token(refresh_token)
+            new_access_token = create_access_token(data={"sub": token_data["sub"]})
+            return {
+                'access_token': new_access_token,
+                'token_type': 'bearer',
+                'message': 'Access token refreshed successfully'
+            }
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail='Access token expired and refresh token is missing'
+            )
