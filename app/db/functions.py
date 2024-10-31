@@ -1,7 +1,8 @@
-import asyncpg
+from datetime import datetime
 from typing import Optional
 from uuid import UUID
-from datetime import datetime
+
+import asyncpg
 from fastapi import HTTPException, status
 
 

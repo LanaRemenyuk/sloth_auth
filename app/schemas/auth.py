@@ -1,6 +1,8 @@
 from datetime import datetime
-from pydantic import BaseModel, UUID4
 from uuid import UUID
+
+from pydantic import UUID4, BaseModel
+
 
 class Token(BaseModel):
     id: UUID4

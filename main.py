@@ -1,6 +1,7 @@
-from fastapi import FastAPI
 from logging import config as logging_config
 from typing import Any
+
+from fastapi import FastAPI
 
 from app.api.routes.auth import router
 from app.core.config import settings

@@ -2,6 +2,7 @@ from typing import Any
 
 from app.core.config import settings
 
+
 def get_logging_config(
     log_level: str | None = "INFO",
 ) -> dict[str, Any]:

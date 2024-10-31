@@ -1,6 +1,8 @@
+from typing import Any, Optional
+
 from pydantic import PostgresDsn, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Any, Optional
+
 
 class Settings(BaseSettings):
     """Класс конфигурации приложения"""
@@ -33,8 +35,8 @@ class Settings(BaseSettings):
 
     # JWT настройки
     jwt_secret_key: str
-    access_token_expire_minutes: int = 30
-    refresh_token_expire_days: int = 7
+    access_token_expire_days: int = 7
+    refresh_token_expire_days: int = 180
 
     model_config = SettingsConfigDict(
         env_file='.env',

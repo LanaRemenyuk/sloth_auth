@@ -1,7 +1,11 @@
-import aiosmtplib
 from email.message import EmailMessage
+
+import aiosmtplib
+
 from app.core.config import settings
+
 from .email_templates import get_verification_email_html
+
 
 async def send_verification_email(to_email: str, verification_code: str):
     """Функция отправки email с кодом верификации при активации пользователя"""

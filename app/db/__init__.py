@@ -1,5 +1,6 @@
-import asyncpg
 from typing import AsyncGenerator, Optional
+
+import asyncpg
 
 from app.core.config import settings
 
