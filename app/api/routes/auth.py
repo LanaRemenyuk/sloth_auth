@@ -78,8 +78,13 @@ async def refresh_token(
         except Exception:
             raise HTTPException(status_code=401, detail="Invalid token structure")
 
-        body = await request.json()
-        refresh_token: Optional[str] = body.get("refresh_token")
+        
+        refresh_token: Optional[str] = None
+        try:
+            body = await request.json()
+            refresh_token = body.get("refresh_token")
+        except Exception:
+            pass 
 
         if not refresh_token:
             refresh_token = await get_refresh_token_for_user(db, user_id)
