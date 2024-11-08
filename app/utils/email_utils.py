@@ -60,4 +60,3 @@ async def send_password_reset_email(to_email: str, token: str):
         )
     except Exception as e:
         raise RuntimeError(f'Failed to send email: {e}')
-
