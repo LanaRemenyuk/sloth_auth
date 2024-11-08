@@ -13,8 +13,9 @@ from app.db import get_db
 from app.db.functions import execute_save_refresh_token, get_refresh_token_for_user
 from app.middlewares.auth import create_access_token, get_current_user, verify_token
 from app.schemas.auth import LoginRequest
+from app.utils.gen_reset_token import create_password_reset_token
 from app.utils.gen_verification_code import generate_verification_code
-from app.utils.email_utils import send_verification_email
+from app.utils.email_utils import send_verification_email, send_password_reset_email
 
 router = APIRouter(
     prefix=f'/api/v1/{settings.service_name}'
@@ -120,3 +121,18 @@ async def verify_token_endpoint(token_data: dict = Body(...)):
         raise e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {e}")
+
+
+@router.post("/send_password_reset_link", status_code = status.HTTP_200_OK)
+async def send_password_reset_link(email: str, db=Depends(get_db)):
+    """Эндпоинт для генерации токена сброса пароля и отправки ссылки на email"""
+    user = await db.fetchrow("SELECT id FROM users WHERE email = $1", email)
+    if not user:
+        raise HTTPException(status_code=404, detail='User not found')
+
+    reset_token = create_password_reset_token(user["id"])
+    reset_link = f"{settings.fake_link}/?token={reset_token}"
+
+    await send_password_reset_email(email, reset_link)
+    return{"message": "Password reset link sent successfully"}
+

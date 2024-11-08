@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     access_token_expire_days: int = 7
     refresh_token_expire_days: int = 180
 
+    fake_link: str = "http://localhost:8080/api/v1/auth/simulate_password_reset_link"
+
     model_config = SettingsConfigDict(
         env_file='.env',
         env_file_encoding='utf-8'
