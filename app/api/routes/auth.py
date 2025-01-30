@@ -140,22 +140,3 @@ async def send_password_reset_link(email: str, db=Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Failed to send email: {e}")
     
     return {"message": "Password reset link sent successfully"}
-
-@router.get("/simulate_password_reset_link")
-async def simulate_password_reset_link(email: str):
-    """Эндпоинт для эмуляции перехода по ссылке сброса пароля"""
-
-    stored_token = redis.get(f"password_reset_token:{email}")
-    
-    if stored_token is None:
-        raise HTTPException(status_code=400, detail="Invalid or expired token")
-    
-    try:
-        user_id = verify_password_reset_token(stored_token)
-
-        return {
-            "message": "Token is valid. You can now reset your password.",
-            "reset_url": f"{settings.reset_url}"
-        }
-    except HTTPException as e:
-        return {"error": str(e)}
