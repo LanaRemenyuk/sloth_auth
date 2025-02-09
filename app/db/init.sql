@@ -15,3 +15,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION delete_refresh_token(p_user_id UUID)
+RETURNS VOID AS $$
+BEGIN
+    DELETE FROM tokens WHERE user_id = p_user_id;
+END;
+$$ LANGUAGE plpgsql;

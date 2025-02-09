@@ -6,12 +6,12 @@ import httpx
 import jwt
 import redis
 from asyncpg import Connection
-from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response, status
 
 from app.core.config import settings
 from app.db import get_db
-from app.db.functions import execute_save_refresh_token, get_refresh_token_for_user
-from app.middlewares.auth import create_access_token, get_current_user, verify_token
+from app.db.functions import execute_save_refresh_token, get_refresh_token_for_user, delete_refresh_token_for_user
+from app.middlewares.auth import create_access_token, get_current_user, verify_token, decode_access_token, oauth2_scheme
 from app.schemas.auth import LoginRequest
 from app.utils.pass_reset_token import create_password_reset_token, verify_password_reset_token
 from app.utils.gen_verification_code import generate_verification_code
@@ -38,18 +38,24 @@ async def send_verification_code(email:str):
         await send_verification_email(email, verification_code)
     except RuntimeError as e:
         raise HTTPException(status_code=500, detail=f'Failed to send email: {e}')
-    
     return {'message': 'Verification code sent and saved successfully'}
 
 @router.post('/login', status_code=status.HTTP_200_OK)
-async def login(request: LoginRequest, db: asyncpg.Connection = Depends(get_db)):
-    token_data = {'sub': str(request.user_id)}
+async def login(request: LoginRequest, db: asyncpg.Connection = Depends(get_db), response: Response = None):
+    token_data = str(request.user_id)
     access_token = create_access_token(user_id=token_data)
     expires_at = datetime.utcnow() + timedelta(days=settings.refresh_token_expire_days)
     try:
         await execute_save_refresh_token(db, request.user_id, access_token, expires_at)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save refresh token: {e}")
+    response.set_cookie(
+        key = 'access_token',
+        value = access_token,
+        httponly = True,
+        max_age = settings.access_token_expire_minutes,
+        samesite = 'lax'
+    )
     return {'access_token': access_token, 'token_type': 'bearer'}
 
 @router.post("/refresh_token", status_code=status.HTTP_200_OK)
@@ -140,3 +146,30 @@ async def send_password_reset_link(email: str, db=Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Failed to send email: {e}")
     
     return {"message": "Password reset link sent successfully"}
+
+
+@router.post("/logout", status_code=status.HTTP_200_OK)
+async def logout(response: Response, db=Depends(get_db), token: str = Depends(oauth2_scheme)):
+    """Логаут: удаление токена и очистка сессии"""
+    
+    # Удаление cookie с токеном
+    response.delete_cookie("access_token")
+
+    try:
+        payload = await decode_access_token(token, db)
+        user_id = payload.get('sub')  # Извлекаем только строку UUID из payload
+
+        # Убедитесь, что user_id - это строка, а не словарь
+        if not isinstance(user_id, str):
+            raise HTTPException(status_code=401, detail="Invalid token structure")
+
+        await delete_refresh_token_for_user(db, user_id)  # Передаем только строку UUID
+
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired.")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error during logout: {e}")
+
+    return {"message": "Logged out successfully"}

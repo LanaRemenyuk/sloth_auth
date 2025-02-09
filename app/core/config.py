@@ -35,8 +35,9 @@ class Settings(BaseSettings):
 
     # JWT настройки
     jwt_secret_key: str
-    access_token_expire_days: int = 7
-    refresh_token_expire_days: int = 180
+    access_token_expire_minutes: int = 60
+    refresh_token_expire_days: int = 30
+    secure_cookies: bool = False  # change for True in production
 
     fake_link: str = "http://localhost:8080/api/v1/auth/simulate_password_reset_link"
     reset_url: str = "http://localhost:8080/api/v1/users/reset_password"

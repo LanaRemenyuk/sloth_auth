@@ -1,5 +1,6 @@
 import logging
-from datetime import datetime, timedelta
+import httpx
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import jwt
@@ -12,29 +13,40 @@ from app.db.functions import get_refresh_token_for_user
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='token')
 
+
 def create_access_token(user_id: str) -> str:
-    data = {"sub": user_id}
+    expiration = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
+    data = {"sub": user_id, "exp": expiration}
+    print(f"Token created with expires_at: {data}")
     return jwt.encode(data, settings.jwt_secret_key, algorithm='HS256')
+
 
 async def decode_access_token(token: str, db=Depends(get_db)):
     try:
+        # Декодирование токена с проверкой подписи
         payload = jwt.decode(token, settings.jwt_secret_key, algorithms=['HS256'])
-        if payload.get("exp") < datetime.utcnow().timestamp():
+        print(f"Decoded payload: {payload}")  # Логируем декодированный payload
+        if payload.get("exp") < datetime.now(timezone.utc).timestamp():
             raise jwt.ExpiredSignatureError
         return payload
 
     except jwt.ExpiredSignatureError:
         try:
-            user_id = jwt.decode(token, options={"verify_signature": False}).get("sub")
+            # Если токен просрочен, пытаемся извлечь id без проверки подписи
+            payload = jwt.decode(token, options={"verify_signature": False})
+            print(f"Decoded payload without signature verification: {payload}")  # Логируем
+            user_id = payload.get("sub")
             if not user_id:
                 raise HTTPException(status_code=401, detail="Invalid token structure")
         except Exception:
             raise HTTPException(status_code=401, detail="Invalid token structure")
 
+        # Попытка получить refresh token для пользователя
         refresh_token = await get_refresh_token_for_user(db, user_id)
         if not refresh_token:
             raise HTTPException(status_code=401, detail="No refresh token found for user")
 
+        # Запрос на обновление access token
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 f"{settings.auth_service_url}/refresh_token",
@@ -53,6 +65,7 @@ async def decode_access_token(token: str, db=Depends(get_db)):
 
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
+
 
 
 # Получение текущего пользователя по токену

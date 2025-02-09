@@ -26,3 +26,14 @@ async def execute_save_refresh_token(conn: asyncpg.Connection, user_id: UUID, re
         await conn.execute(query, user_id, refresh_token, expires_at)
     except asyncpg.exceptions.RaiseException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+async def delete_refresh_token_for_user(conn: asyncpg.Connection, user_id: str) -> None:
+    try:
+        query = """
+        DELETE FROM tokens WHERE user_id = $1
+        """
+        await conn.execute(query, user_id)
+    except Exception as e:
+        print(f"Error deleting refresh_token for user_id {user_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete refresh token")
